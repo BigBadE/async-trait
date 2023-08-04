@@ -41,7 +41,7 @@ trait Trait {
 
     async fn explicit_lifetime<'a>(_x: &'a str) {}
 
-    async fn generic_type_param<T: Send>(x: Box<T>) -> T {
+    async fn generic_type_param<T: Send + Sync>(x: Box<T>) -> T {
         *x
     }
 
@@ -74,7 +74,7 @@ impl Trait for Struct {
 
     async fn explicit_lifetime<'a>(_x: &'a str) {}
 
-    async fn generic_type_param<T: Send>(x: Box<T>) -> T {
+    async fn generic_type_param<T: Send + Sync>(x: Box<T>) -> T {
         *x
     }
 
@@ -259,7 +259,7 @@ pub mod issue2 {
     pub trait Issue2: Future {
         async fn flatten(self) -> <Self::Output as Future>::Output
         where
-            Self::Output: Future + Send,
+            Self::Output: Future + Send + Sync,
             Self: Sized,
         {
             let nested_future = self.await;
@@ -305,7 +305,7 @@ pub mod issue15 {
 
     #[async_trait]
     trait Issue15 {
-        async fn myfn(&self, _: PhantomData<dyn Trait + Send>) {}
+        async fn myfn(&self, _: PhantomData<dyn Trait + Send + Sync>) {}
     }
 }
 
@@ -638,37 +638,6 @@ pub mod issue45 {
         // If so, was it the expected value?
         assert_eq!(*subscriber.inner.value.lock().unwrap(), Some(("val", 5, 2)));
     }
-}
-
-// https://github.com/dtolnay/async-trait/issues/46
-pub mod issue46 {
-    use async_trait::async_trait;
-
-    macro_rules! implement_commands_workaround {
-        ($tyargs:tt : $ty:tt) => {
-            #[async_trait]
-            pub trait AsyncCommands1: Sized {
-                async fn f<$tyargs: $ty>(&mut self, x: $tyargs) {
-                    self.f(x).await
-                }
-            }
-        };
-    }
-
-    implement_commands_workaround!(K: Send);
-
-    macro_rules! implement_commands {
-        ($tyargs:ident : $ty:ident) => {
-            #[async_trait]
-            pub trait AsyncCommands2: Sized {
-                async fn f<$tyargs: $ty>(&mut self, x: $tyargs) {
-                    self.f(x).await
-                }
-            }
-        };
-    }
-
-    implement_commands!(K: Send);
 }
 
 // https://github.com/dtolnay/async-trait/issues/53
@@ -1035,7 +1004,7 @@ pub mod issue106 {
 
         async fn spawn<F, Fut, T>(&self, work: F) -> T
         where
-            F: FnOnce(&Self::ThreadPool) -> Fut + Send,
+            F: FnOnce(&Self::ThreadPool) -> Fut + Send + Sync,
             Fut: Future<Output = T> + 'static;
     }
 
@@ -1048,7 +1017,7 @@ pub mod issue106 {
 
         async fn spawn<F, Fut, T>(&self, work: F) -> T
         where
-            F: FnOnce(&Self::ThreadPool) -> Fut + Send,
+            F: FnOnce(&Self::ThreadPool) -> Fut + Send + Sync,
             Fut: Future<Output = T> + 'static,
         {
             (**self).spawn(work).await
@@ -1382,14 +1351,14 @@ pub mod issue177 {
 
     #[async_trait]
     pub trait Trait {
-        async fn foo(&self, _callback: impl FnMut(&str) + Send) {}
+        async fn foo(&self, _callback: impl FnMut(&str) + Send + Sync) {}
     }
 
     pub struct Struct;
 
     #[async_trait]
     impl Trait for Struct {
-        async fn foo(&self, _callback: impl FnMut(&str) + Send) {}
+        async fn foo(&self, _callback: impl FnMut(&str) + Send + Sync) {}
     }
 }
 

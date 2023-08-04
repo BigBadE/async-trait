@@ -152,7 +152,7 @@ fn lint_suppress_without_body() -> Attribute {
 //     fn f<'life0, 'life1, 'async_trait, T>(
 //         &'life0 self,
 //         x: &'life1 T,
-//     ) -> Pin<Box<dyn Future<Output = Ret> + Send + 'async_trait>>
+//     ) -> Pin<Box<dyn Future<Output = Ret> + Send + Sync + 'async_trait>>
 //     where
 //         'life0: 'async_trait,
 //         'life1: 'async_trait,
@@ -261,10 +261,10 @@ fn transform_sig(
                 {
                     &[InferredBound::Sync, InferredBound::Send]
                 }
-                _ => &[InferredBound::Send],
+                _ => &[InferredBound::Sync, InferredBound::Send],
             }
         } else {
-            &[InferredBound::Send]
+            &[InferredBound::Sync, InferredBound::Send]
         };
 
         let bounds = bounds.iter().filter_map(|bound| {
@@ -315,7 +315,7 @@ fn transform_sig(
     let bounds = if is_local {
         quote_spanned!(default_span=> 'async_trait)
     } else {
-        quote_spanned!(default_span=> ::core::marker::Send + 'async_trait)
+        quote_spanned!(default_span=> ::core::marker::Send + ::core::marker::Sync + 'async_trait)
     };
     sig.output = parse_quote_spanned! {default_span=>
         #ret_arrow ::core::pin::Pin<Box<
